@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Johns Hopkins COVID-19 Global Analysis Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+            letter-spacing: -1px;
+        }
+        
+        .header p {
+            margin: 15px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.2em;
+            font-weight: 300;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        .date-slider {
+            width: 250px;
+            height: 8px;
+            background: #ddd;
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .date-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3498db;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .clear-button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .clear-button:hover {
+            background: #c0392b;
+            transform: translateY(-1px);
+        }
+        
+        .stats-panel {
+            background: #34495e;
+            color: white;
+            padding: 20px;
+            margin: 0 25px 20px 25px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .stat-item h3 {
+            margin: 0;
+            font-size: 2em;
+            color: #3498db;
+            font-weight: 300;
+        }
+        
+        .stat-item p {
+            margin: 5px 0 0 0;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .charts-container {
+            display: flex;
+            padding: 25px;
+            gap: 25px;
+            min-height: 700px;
+            flex-wrap: wrap;
+        }
+        
+        .chart-panel {
+            flex: 1;
+            min-width: 600px;
+            background: #fafbfc;
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid #e1e8ed;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chart-subtitle {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            font-weight: 400;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 13px;
+            z-index: 1000;
+            max-width: 350px;
+            line-height: 1.5;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #3498db;
+        }
+        
+        .tooltip strong {
+            color: #3498db;
+            font-size: 14px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin: 20px 25px;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 4px;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .axis-label {
+            font-size: 14px;
+            font-weight: 600;
+            fill: #2c3e50;
+        }
+        
+        .grid-line {
+            stroke: #bdc3c7;
+            stroke-dasharray: 3,3;
+            opacity: 0.5;
+        }
+        
+        .country-circle {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            stroke: #fff;
+            stroke-width: 1.5;
+        }
+        
+        .country-circle:hover {
+            stroke: #2c3e50;
+            stroke-width: 3px;
+        }
+        
+        .country-bar {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            stroke: #fff;
+            stroke-width: 1;
+        }
+        
+        .country-bar:hover {
+            stroke: #2c3e50;
+            stroke-width: 2px;
+        }
+        
+        .selected {
+            stroke: #e74c3c !important;
+            stroke-width: 4px !important;
+            filter: drop-shadow(0 0 6px rgba(231, 76, 60, 0.6));
+        }
+        
+        .faded {
+            opacity: 0.15 !important;
+        }
+        
+        #date-display {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 16px;
+            min-width: 100px;
+        }
+        
+        .chart-svg {
+            border-radius: 8px;
+            background: white;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            background: #fdf2f2;
+            border: 1px solid #e74c3c;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>Johns Hopkins COVID-19 Global Analysis</h1>
+            <p>Interactive dashboard analyzing the relationship between case fatality rates and total deaths across countries and time</p>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            Loading and processing Johns Hopkins COVID-19 data...
+            <div style="margin-top: 15px; font-size: 14px; color: #888;">
+                Processing 1,100+ days of data across 200+ countries/regions
+            </div>
+        </div>
+        
+        <div id="dashboard-content" style="display: none;">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="date-slider">Date:</label>
+                    <input type="range" id="date-slider" class="date-slider" min="0" max="100" value="100">
+                    <span id="date-display"></span>
+                </div>
+                <div class="control-group">
+                    <button class="clear-button" onclick="clearSelection()">Clear Selection</button>
+                    <span style="color: #7f8c8d; font-size: 14px;">Click any chart element to explore cross-filtering</span>
+                </div>
+            </div>
+            
+            <div class="stats-panel" id="stats-panel">
+                <div class="stat-item">
+                    <h3 id="total-cases">-</h3>
+                    <p>Total Global Cases</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="total-deaths">-</h3>
+                    <p>Total Global Deaths</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="avg-fatality">-</h3>
+                    <p>Average Fatality Rate</p>
+                </div>
+                <div class="stat-item">
+                    <h3 id="countries-affected">-</h3>
+                    <p>Countries with Data</p>
+                </div>
+            </div>
+            
+            <div class="charts-container">
+                <div class="chart-panel">
+                    <div class="chart-title">
+                        Case Fatality Rate vs Total Deaths
+                        <span class="chart-subtitle">Bubble size = Total Cases | Color = Region</span>
+                    </div>
+                    <div id="scatterplot"></div>
+                </div>
+                <div class="chart-panel">
+                    <div class="chart-title">
+                        Top 20 Countries by Total Deaths
+                        <span class="chart-subtitle">Ranked by deaths on selected date</span>
+                    </div>
+                    <div id="barchart"></div>
+                </div>
+            </div>
+            
+            <div class="legend" id="legend"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let globalData = [];
+        let processedData = [];
+        let selectedCountries = new Set();
+        let currentDateIndex = 0;
+        let dateColumns = [];
+        let tooltip;
+        
+        // Regional color scheme based on continents
+        const regionColors = {
+            "Asia": "#e74c3c",
+            "Europe": "#3498db", 
+            "North America": "#f39c12",
+            "South America": "#27ae60",
+            "Africa": "#9b59b6",
+            "Oceania": "#1abc9c",
+            "Other": "#95a5a6"
+        };
+        
+        // Initialize tooltip
+        tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
+        
+        // Load and process data
+        async function loadData() {
+            try {
+                console.log("Loading Johns Hopkins COVID-19 data files...");
+                
+                // Load all data files
+                const [confirmedData, deathsData, lookupData] = await Promise.all([
+                    loadCSV('time_series_covid19_confirmed_global.csv'),
+                    loadCSV('time_series_covid19_deaths_global.csv'),
+                    loadCSV('UID_ISO_FIPS_LookUp_Table.csv')
+                ]);
+                
+                console.log("Data loaded successfully");
+                console.log(`Confirmed cases: ${confirmedData.data.length} rows`);
+                console.log(`Deaths: ${deathsData.data.length} rows`);
+                console.log(`Lookup table: ${lookupData.data.length} rows`);
+                
+                // Extract date columns
+                dateColumns = confirmedData.meta.fields.filter(field => 
+                    field && field.match(/^\d{1,2}\/\d{1,2}\/\d{2}$/));
+                
+                console.log(`Found ${dateColumns.length} date columns from ${dateColumns[0]} to ${dateColumns[dateColumns.length-1]}`);
+                
+                // Process and combine data
+                processedData = processCovidData(confirmedData, deathsData, lookupData);
+                console.log(`Processed data for ${processedData.length} countries`);
+                
+                // Setup date slider
+                setupDateSlider();
+                
+                // Initial render with most recent date
+                currentDateIndex = dateColumns.length - 1;
+                updateDashboard();
+                
+                // Show dashboard
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('dashboard-content').style.display = 'block';
+                
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showError(error);
+            }
+        }
+        
+        // Load CSV helper function
+        async function loadCSV(filename) {
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${filename}: ${response.status} ${response.statusText}`);
+                }
+                const text = await response.text();
+                return Papa.parse(text, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    delimitersToGuess: [',', '\t', '|', ';']
+                });
+            } catch (error) {
+                throw new Error(`Error loading ${filename}: ${error.message}`);
+            }
+        }
+        
+        // Process COVID-19 data
+        function processCovidData(confirmedData, deathsData, lookupData) {
+            const countries = new Map();
+            
+            // Create lookup map for population and region data
+            const lookupMap = new Map();
+            lookupData.data.forEach(row => {
+                if (row['Country_Region'] && !row['Province_State']) {
+                    lookupMap.set(row['Country_Region'], {
+                        population: row['Population'] || 0,
+                        region: getRegion(row['Country_Region'])
+                    });
+                }
+            });
+            
+            // Process confirmed cases - aggregate by country
+            confirmedData.data.forEach(row => {
+                const country = row['Country/Region'];
+                if (!country) return;
+                
+                if (!countries.has(country)) {
+                    countries.set(country, {
+                        country: country,
+                        confirmed: {},
+                        deaths: {},
+                        population: lookupMap.get(country)?.population || 0,
+                        region: lookupMap.get(country)?.region || 'Other'
+                    });
+                }
+                
+                // Aggregate confirmed cases by date (sum provinces/states)
+                dateColumns.forEach(date => {
+                    const current = countries.get(country).confirmed[date] || 0;
+                    countries.get(country).confirmed[date] = current + (row[date] || 0);
+                });
+            });
+            
+            // Process deaths - aggregate by country
+            deathsData.data.forEach(row => {
+                const country = row['Country/Region'];
+                if (!country || !countries.has(country)) return;
+                
+                // Aggregate deaths by date (sum provinces/states)
+                dateColumns.forEach(date => {
+                    const current = countries.get(country).deaths[date] || 0;
+                    countries.get(country).deaths[date] = current + (row[date] || 0);
+                });
+            });
+            
+            // Filter out countries with insufficient data
+            return Array.from(countries.values())
+                .filter(country => {
+                    const latestDate = dateColumns[dateColumns.length - 1];
+                    return country.confirmed[latestDate] >= 1000; // At least 1000 total cases
+                })
+                .sort((a, b) => {
+                    const latestDate = dateColumns[dateColumns.length - 1];
+                    return (b.deaths[latestDate] || 0) - (a.deaths[latestDate] || 0);
+                });
+        }
+        
+        // Get region for country based on geographic location
+        function getRegion(country) {
+            const regionMapping = {
+                // Asia
+                'China': 'Asia', 'Japan': 'Asia', 'Korea, South': 'Asia', 'India': 'Asia',
+                'Thailand': 'Asia', 'Singapore': 'Asia', 'Philippines': 'Asia', 'Malaysia': 'Asia',
+                'Vietnam': 'Asia', 'Cambodia': 'Asia', 'Sri Lanka': 'Asia', 'Nepal': 'Asia',
+                'Indonesia': 'Asia', 'Taiwan*': 'Asia', 'Pakistan': 'Asia', 'Bangladesh': 'Asia',
+                'Myanmar': 'Asia', 'Laos': 'Asia', 'Mongolia': 'Asia', 'Bhutan': 'Asia',
+                'Iran': 'Asia', 'Iraq': 'Asia', 'Afghanistan': 'Asia', 'Kazakhstan': 'Asia',
+                'Uzbekistan': 'Asia', 'Syria': 'Asia', 'Jordan': 'Asia', 'Lebanon': 'Asia',
+                'Israel': 'Asia', 'Saudi Arabia': 'Asia', 'Kuwait': 'Asia', 'Qatar': 'Asia',
+                'UAE': 'Asia', 'Oman': 'Asia', 'Bahrain': 'Asia', 'Yemen': 'Asia',
+                
+                // Europe
+                'Italy': 'Europe', 'Germany': 'Europe', 'France': 'Europe', 'Spain': 'Europe',
+                'United Kingdom': 'Europe', 'Switzerland': 'Europe', 'Netherlands': 'Europe',
+                'Austria': 'Europe', 'Belgium': 'Europe', 'Norway': 'Europe', 'Sweden': 'Europe',
+                'Portugal': 'Europe', 'Denmark': 'Europe', 'Czechia': 'Europe', 'Romania': 'Europe',
+                'Poland': 'Europe', 'Finland': 'Europe', 'Greece': 'Europe', 'Iceland': 'Europe',
+                'Russia': 'Europe', 'Ireland': 'Europe', 'Luxembourg': 'Europe', 'Croatia': 'Europe',
+                'Slovenia': 'Europe', 'Estonia': 'Europe', 'Latvia': 'Europe', 'Lithuania': 'Europe',
+                'Slovakia': 'Europe', 'Hungary': 'Europe', 'Bulgaria': 'Europe', 'Serbia': 'Europe',
+                'Albania': 'Europe', 'Bosnia and Herzegovina': 'Europe', 'North Macedonia': 'Europe',
+                'Montenegro': 'Europe', 'Moldova': 'Europe', 'Ukraine': 'Europe', 'Belarus': 'Europe',
+                
+                // North America
+                'US': 'North America', 'Canada': 'North America', 'Mexico': 'North America',
+                'Guatemala': 'North America', 'Cuba': 'North America', 'Dominican Republic': 'North America',
+                'Haiti': 'North America', 'Honduras': 'North America', 'Nicaragua': 'North America',
+                'Costa Rica': 'North America', 'Panama': 'North America', 'Jamaica': 'North America',
+                
+                // South America
+                'Brazil': 'South America', 'Chile': 'South America', 'Argentina': 'South America',
+                'Peru': 'South America', 'Colombia': 'South America', 'Ecuador': 'South America',
+                'Venezuela': 'South America', 'Uruguay': 'South America', 'Bolivia': 'South America',
+                'Paraguay': 'South America', 'Guyana': 'South America', 'Suriname': 'South America',
+                
+                // Africa
+                'Egypt': 'Africa', 'Algeria': 'Africa', 'Nigeria': 'Africa', 'Morocco': 'Africa',
+                'South Africa': 'Africa', 'Tunisia': 'Africa', 'Burkina Faso': 'Africa',
+                'Ghana': 'Africa', 'Cameroon': 'Africa', 'Senegal': 'Africa', 'Congo (Kinshasa)': 'Africa',
+                'Congo (Brazzaville)': 'Africa', 'Ethiopia': 'Africa', 'Kenya': 'Africa', 'Uganda': 'Africa',
+                'Tanzania': 'Africa', 'Rwanda': 'Africa', 'Zimbabwe': 'Africa', 'Zambia': 'Africa',
+                'Mozambique': 'Africa', 'Madagascar': 'Africa', 'Angola': 'Africa', 'Mali': 'Africa',
+                'Niger': 'Africa', 'Chad': 'Africa', 'Sudan': 'Africa', 'Libya': 'Africa',
+                
+                // Oceania
+                'Australia': 'Oceania', 'New Zealand': 'Oceania', 'Papua New Guinea': 'Oceania',
+                'Fiji': 'Oceania', 'Solomon Islands': 'Oceania', 'Vanuatu': 'Oceania'
+            };
+            
+            return regionMapping[country] || 'Other';
+        }
+        
+        // Setup date slider
+        function setupDateSlider() {
+            const slider = document.getElementById('date-slider');
+            slider.max = dateColumns.length - 1;
+            slider.value = dateColumns.length - 1;
+            
+            slider.addEventListener('input', function() {
+                currentDateIndex = parseInt(this.value);
+                updateDashboard();
+            });
+        }
+        
+        // Update dashboard
+        function updateDashboard() {
+            const currentDate = dateColumns[currentDateIndex];
+            document.getElementById('date-display').textContent = formatDate(currentDate);
+            
+            // Prepare data for current date
+            const currentData = prepareCurrentData(currentDate);
+            
+            // Update statistics
+            updateStatistics(currentData);
+            
+            // Update charts
+            updateScatterplot(currentData);
+            updateBarChart(currentData);
+            updateLegend();
+            
+            // Update selections
+            updateSelectionHighlight();
+        }
+        
+        // Prepare data for current date
+        function prepareCurrentData(date) {
+            return processedData.map(country => {
+                const confirmed = country.confirmed[date] || 0;
+                const deaths = country.deaths[date] || 0;
+                const fatalityRate = confirmed > 0 ? (deaths / confirmed) * 100 : 0;
+                
+                return {
+                    ...country,
+                    currentConfirmed: confirmed,
+                    currentDeaths: deaths,
+                    fatalityRate: fatalityRate,
+                    deathsPerMillion: country.population > 0 ? (deaths / country.population) * 1000000 : 0
+                };
+            }).filter(d => d.currentConfirmed > 0);
+        }
+        
+        // Update statistics panel
+        function updateStatistics(data) {
+            const totalCases = d3.sum(data, d => d.currentConfirmed);
+            const totalDeaths = d3.sum(data, d => d.currentDeaths);
+            const avgFatality = d3.mean(data, d => d.fatalityRate);
+            
+            document.getElementById('total-cases').textContent = totalCases.toLocaleString();
+            document.getElementById('total-deaths').textContent = totalDeaths.toLocaleString();
+            document.getElementById('avg-fatality').textContent = (avgFatality || 0).toFixed(2) + '%';
+            document.getElementById('countries-affected').textContent = data.length.toLocaleString();
+        }
+        
+        // Format date from M/D/YY to readable format
+        function formatDate(dateStr) {
+            const [month, day, year] = dateStr.split('/');
+            const fullYear = parseInt(year) < 50 ? 2000 + parseInt(year) : 1900 + parseInt(year);
+            const date = new Date(fullYear, parseInt(month) - 1, parseInt(day));
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+        
+        // Update scatterplot
+        function updateScatterplot(data) {
+            // Clear previous chart
+            d3.select("#scatterplot").selectAll("*").remove();
+            
+            const margin = {top: 40, right: 50, bottom: 80, left: 80};
+            const width = 600 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+            
+            const svg = d3.select("#scatterplot")
+                .append("svg")
+                .attr("class", "chart-svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+                
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Filter out extreme outliers for better scaling
+            const validData = data.filter(d => d.fatalityRate < 50 && d.currentDeaths > 0);
+            
+            // Scales
+            const xScale = d3.scaleLinear()
+                .domain([0, Math.max(10, d3.max(validData, d => d.fatalityRate))])
+                .range([0, width]);
+                
+            const yScale = d3.scaleLog()
+                .domain([1, Math.max(100, d3.max(validData, d => d.currentDeaths))])
+                .range([height, 0]);
+                
+            const sizeScale = d3.scaleSqrt()
+                .domain([0, d3.max(validData, d => d.currentConfirmed)])
+                .range([4, 30]);
+            
+            // Grid lines
+            g.selectAll(".grid-line-x")
+                .data(xScale.ticks(8))
+                .enter().append("line")
+                .attr("class", "grid-line")
+                .attr("x1", d => xScale(d))
+                .attr("x2", d => xScale(d))
+                .attr("y1", 0)
+                .attr("y2", height);
+                
+            g.selectAll(".grid-line-y")
+                .data(yScale.ticks(6))
+                .enter().append("line")
+                .attr("class", "grid-line")
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", d => yScale(d))
+                .attr("y2", d => yScale(d));
+            
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d => d + '%'));
+                
+            g.append("g")
+                .call(d3.axisLeft(yScale).tickFormat(d3.format(".0s")));
+            
+            // Axis labels
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left)
+                .attr("x", 0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Total Deaths (log scale)");
+                
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", `translate(${width / 2}, ${height + margin.bottom - 10})`)
+                .style("text-anchor", "middle")
+                .text("Case Fatality Rate (%)");
+            
+            // Data points
+            const circles = g.selectAll(".country-circle")
+                .data(validData)
+                .enter().append("circle")
+                .attr("class", "country-circle")
+                .attr("cx", d => xScale(d.fatalityRate))
+                .attr("cy", d => yScale(Math.max(1, d.currentDeaths)))
+                .attr("r", d => sizeScale(d.currentConfirmed))
+                .attr("fill", d => regionColors[d.region] || regionColors["Other"])
+                .attr("opacity", 0.7);
+            
+            // Event handlers
+            circles.on("mouseover", function(event, d) {
+                tooltip.transition().duration(200).style("opacity", .9);
+                tooltip.html(`
+                    <strong>${d.country}</strong><br/>
+                    Case Fatality Rate: ${d.fatalityRate.toFixed(2)}%<br/>
+                    Total Deaths: ${d.currentDeaths.toLocaleString()}<br/>
+                    Total Cases: ${d.currentConfirmed.toLocaleString()}<br/>
+                    Deaths per Million: ${d.deathsPerMillion.toFixed(1)}<br/>
+                    Population: ${d.population.toLocaleString()}<br/>
+                    Region: ${d.region}
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.transition().duration(500).style("opacity", 0);
+            })
+            .on("click", function(event, d) {
+                event.stopPropagation();
+                toggleSelection(d.country);
+            });
+        }
+        
+        // Update bar chart
+        function updateBarChart(data) {
+            // Clear previous chart
+            d3.select("#barchart").selectAll("*").remove();
+            
+            const topCountries = [...data]
+                .sort((a, b) => b.currentDeaths - a.currentDeaths)
+                .slice(0, 20);
+            
+            const margin = {top: 40, right: 50, bottom: 120, left: 80};
+            const width = 600 - margin.left - margin.right;
+            const height = 500 - margin.top - margin.bottom;
+            
+            const svg = d3.select("#barchart")
+                .append("svg")
+                .attr("class", "chart-svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+                
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Scales
+            const xScale = d3.scaleBand()
+                .domain(topCountries.map(d => d.country))
+                .range([0, width])
+                .padding(0.1);
+                
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(topCountries, d => d.currentDeaths)])
+                .range([height, 0]);
+            
+            // Grid lines
+            g.selectAll(".grid-line-y")
+                .data(yScale.ticks(8))
+                .enter().append("line")
+                .attr("class", "grid-line")
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", d => yScale(d))
+                .attr("y2", d => yScale(d));
+            
+            // Axes
+            g.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)")
+                .style("font-size", "12px");
+                
+            g.append("g")
+                .call(d3.axisLeft(yScale).tickFormat(d3.format(".2s")));
+            
+            // Axis labels
+            g.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left)
+                .attr("x", 0 - (height / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Total Deaths");
+            
+            // Bars
+            const bars = g.selectAll(".country-bar")
+                .data(topCountries)
+                .enter().append("rect")
+                .attr("class", "country-bar")
+                .attr("x", d => xScale(d.country))
+                .attr("width", xScale.bandwidth())
+                .attr("y", d => yScale(d.currentDeaths))
+                .attr("height", d => height - yScale(d.currentDeaths))
+                .attr("fill", d => regionColors[d.region] || regionColors["Other"])
+                .attr("opacity", 0.7);
+            
+            // Event handlers
+            bars.on("mouseover", function(event, d) {
+                tooltip.transition().duration(200).style("opacity", .9);
+                tooltip.html(`
+                    <strong>${d.country}</strong><br/>
+                    Total Deaths: ${d.currentDeaths.toLocaleString()}<br/>
+                    Case Fatality Rate: ${d.fatalityRate.toFixed(2)}%<br/>
+                    Total Cases: ${d.currentConfirmed.toLocaleString()}<br/>
+                    Deaths per Million: ${d.deathsPerMillion.toFixed(1)}<br/>
+                    Population: ${d.population.toLocaleString()}<br/>
+                    Region: ${d.region}
+                `)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.transition().duration(500).style("opacity", 0);
+            })
+            .on("click", function(event, d) {
+                event.stopPropagation();
+                toggleSelection(d.country);
+            });
+        }
+        
+        // Update legend
+        function updateLegend() {
+            const legend = d3.select("#legend");
+            legend.selectAll("*").remove();
+            
+            Object.entries(regionColors).forEach(([region, color]) => {
+                const item = legend.append("div").attr("class", "legend-item");
+                item.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", color);
+                item.append("span").text(region);
+            });
+        }
+        
+        // Toggle selection
+        function toggleSelection(country) {
+            if (selectedCountries.has(country)) {
+                selectedCountries.delete(country);
+            } else {
+                selectedCountries.add(country);
+            }
+            updateSelectionHighlight();
+        }
+        
+        // Update selection highlighting
+        function updateSelectionHighlight() {
+            const hasSelection = selectedCountries.size > 0;
+            
+            d3.selectAll(".country-circle")
+                .classed("selected", d => selectedCountries.has(d.country))
+                .classed("faded", d => hasSelection && !selectedCountries.has(d.country));
+                
+            d3.selectAll(".country-bar")
+                .classed("selected", d => selectedCountries.has(d.country))
+                .classed("faded", d => hasSelection && !selectedCountries.has(d.country));
+        }
+        
+        // Clear selection
+        function clearSelection() {
+            selectedCountries.clear();
+            updateSelectionHighlight();
+        }
+        
+        // Show error message
+        function showError(error) {
+            document.getElementById('loading').innerHTML = `
+                <div class="error-message">
+                    <h3>Error Loading Data</h3>
+                    <p>Could not load Johns Hopkins COVID-19 data files. Please ensure the following files are in the same directory as this HTML file:</p>
+                    <ul style="text-align: left; display: inline-block; margin: 15px 0;">
+                        <li><code>time_series_covid19_confirmed_global.csv</code></li>
+                        <li><code>time_series_covid19_deaths_global.csv</code></li>
+                        <li><code>UID_ISO_FIPS_LookUp_Table.csv</code></li>
+                    </ul>
+                    <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                        Download these files from: 
+                        <a href="https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data" target="_blank">
+                            Johns Hopkins COVID-19 Repository
+                        </a>
+                    </p>
+                    <p style="margin-top: 10px; font-size: 12px; color: #999;">
+                        Error details: ${error.message}
+                    </p>
+                </div>`;
+        }
+        
+        // Clear selection when clicking on empty space
+        d3.select("body").on("click", function(event) {
+            if (!event.target.closest('.chart-panel') && !event.target.closest('.clear-button')) {
+                clearSelection();
+            }
+        });
+        
+        // Prevent event bubbling on chart areas
+        d3.selectAll(".chart-panel").on("click", function(event) {
+            event.stopPropagation();
+        });
+        
+        // Initialize dashboard
+        loadData();
+    </script>
+</body>
+</html>
