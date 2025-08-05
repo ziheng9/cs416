@@ -1,494 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rising Temperatures: A Climate Story</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/2.5.1/d3-annotation.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 18px;
-        }
-        
-        #visualization {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 40px;
-            margin-bottom: 20px;
-        }
-        
-        .navigation {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin: 0 10px;
-            transition: background-color 0.3s;
-        }
-        
-        button:hover {
-            background-color: #45a049;
-        }
-        
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
-        .scene-indicator {
-            text-align: center;
-            color: #666;
-            margin: 10px 0;
-        }
-        
-        .axis {
-            font-size: 12px;
-        }
-        
-        .axis-label {
-            font-size: 14px;
-            font-weight: bold;
-        }
-        
-        .line {
-            fill: none;
-            stroke-width: 2;
-        }
-        
-        .dot {
-            cursor: pointer;
-        }
-        
-        .tooltip {
-            position: absolute;
-            text-align: center;
-            padding: 8px;
-            font-size: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            border-radius: 4px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .annotation-note-title {
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        .annotation-note-label {
-            font-size: 12px;
-        }
-        
-        .interactive-note {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rising Temperatures: A Climate Story</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/2.5.1/d3-annotation.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background-color: #f5f5f5; }
+    .container { max-width: 960px; margin: auto; padding: 20px; }
+    h1, .subtitle { text-align: center; margin: 0; }
+    .subtitle { color: #555; margin-bottom: 20px; font-size: 1.1rem; }
+    svg { width: 100%; height: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .navigation { text-align: center; margin: 15px 0; }
+    button { background: #4CAF50; color: #fff; border: none; padding: 10px 20px; margin: 0 5px; font-size: 1rem; border-radius: 4px; cursor: pointer; transition: background .2s; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .scene-indicator { text-align: center; color: #666; margin: 5px 0; }
+    .tooltip { position: absolute; padding: 8px; background: rgba(0,0,0,0.8); color: #fff; border-radius: 4px; pointer-events: none; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; }
+    .annotation-note-title { font-weight: bold; }
+    .annotation-note-label { font-size: 0.85rem; }
+    .interactive-note { text-align: center; font-style: italic; color: #666; margin-top: 10px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Rising Temperatures: A Climate Story</h1>
-        <p class="subtitle">Understanding Global Temperature Anomalies from 1880 to 2023</p>
-        
-        <div id="visualization"></div>
-        
-        <div class="scene-indicator" id="sceneIndicator">Scene 1 of 3</div>
-        
-        <div class="navigation">
-            <button id="prevBtn" onclick="previousScene()" disabled>Previous</button>
-            <button id="nextBtn" onclick="nextScene()">Next</button>
-        </div>
-        
-        <p class="interactive-note" id="interactiveNote" style="display: none;">
-            Hover over data points to see detailed temperature information
-        </p>
+  <div class="container">
+    <h1>Rising Temperatures: A Climate Story</h1>
+    <p class="subtitle">Global Temperature Anomalies from 1880 to 2023</p>
+    <div id="chart"></div>
+    <div class="scene-indicator" id="sceneIndicator">Loading...</div>
+    <div class="navigation">
+      <button id="prevBtn">Previous</button>
+      <button id="nextBtn">Next</button>
     </div>
-    
-    <div class="tooltip" id="tooltip"></div>
+    <p class="interactive-note" id="interactiveNote" style="display:none;">Hover over points to see details</p>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
 
-    <script>
-        // Global parameters
-        let currentScene = 1;
-        const totalScenes = 3;
-        let data = [];
-        let isInteractive = false;
-        
-        // Chart dimensions
-        const margin = {top: 20, right: 80, bottom: 60, left: 80};
-        const width = 1000 - margin.left - margin.right;
-        const height = 500 - margin.top - margin.bottom;
-        
-        // Create SVG
-        const svg = d3.select("#visualization")
-            .append("svg")
-            .attr("width", width + margin.left + margin.right)
-            .attr("height", height + margin.top + margin.bottom)
-            .append("g")
-            .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        // Generate sample data (temperature anomalies)
-        function generateData() {
-            const years = [];
-            for (let year = 1880; year <= 2023; year++) {
-                // Simulate temperature anomaly data with increasing trend
-                const baseAnomaly = (year - 1880) * 0.008;
-                const randomVariation = (Math.random() - 0.5) * 0.4;
-                const anomaly = baseAnomaly + randomVariation + 
-                    (year > 1970 ? (year - 1970) * 0.01 : 0);
-                
-                years.push({
-                    year: year,
-                    temperature: anomaly,
-                    decade: Math.floor(year / 10) * 10
-                });
-            }
-            return years;
+  <script>
+    // Margins and dimensions
+    const margin = { top: 30, right: 40, bottom: 50, left: 60 };
+    const width = 960 - margin.left - margin.right;
+    const height = 500 - margin.top - margin.bottom;
+
+    // State
+    let data = [];
+    let currentScene = 0;
+
+    // Scales (domains set after data load)
+    const x = d3.scaleLinear().range([0, width]);
+    const y = d3.scaleLinear().range([height, 0]);
+    const color = d3.scaleSequential().interpolator(d3.interpolateRdYlBu).clamp(true);
+
+    // Line generator
+    const lineGen = d3.line()
+      .x(d => x(d.year))
+      .y(d => y(d.temperature))
+      .curve(d3.curveMonotoneX);
+
+    // SVG container
+    const svg = d3.select('#chart')
+      .append('svg')
+        .attr('width', width + margin.left + margin.right)
+        .attr('height', height + margin.top + margin.bottom)
+      .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Tooltip
+    const tooltip = d3.select('#tooltip');
+
+    // Scenes definition
+    const scenes = [
+      { label: 'Early Industrial Era', endYear: 1950, interactive: false,
+        annotation: [{ x: 1920, y: 0.1, dx: 50, dy: -40,
+          note: { title: 'Stable Temps', label: 'Minor fluctuations before 1950' } }]
+      },
+      { label: 'Post-War Boom', endYear: 1990, interactive: false,
+        annotation: [
+          { x: 1960, y: 0.2, dx: 40, dy: -50, note: { title: 'Industrial Impact', label: 'Warming accelerates post-1950s' } },
+          { x: 1975, y: 0.4, dx: 60, dy: 30, note: { title: '1970s Trend', label: 'Clear upward trend' } }
+        ]
+      },
+      { label: '21st Century Crisis', endYear: 2023, interactive: true,
+        annotation: [
+          { x: 2010, y: 1.2, dx: -80, dy: -40, note: { title: 'Crisis Point', label: 'Unprecedented warming rates' } },
+          { x: 2020, y: 1.4, dx: -60, dy: 30, note: { title: 'Record Years', label: 'Multiple record-breaking years' } }
+        ]
+      }
+    ];
+
+    // Annotation helper
+    function annotate(items) {
+      const ann = d3.annotation().type(d3.annotationLabel).annotations(items);
+      svg.append('g').attr('class', 'annotation-group').call(ann);
+    }
+
+    // Draw scene by index
+    function drawScene(idx) {
+      const scene = scenes[idx];
+      // Update UI
+      d3.select('#sceneIndicator').text(`Scene ${idx+1} of ${scenes.length} – ${scene.label}`);
+      d3.select('#prevBtn').property('disabled', idx === 0);
+      d3.select('#nextBtn').property('disabled', idx === scenes.length - 1);
+      d3.select('#interactiveNote').style('display', scene.interactive ? 'block' : 'none');
+
+      // Filter data
+      const filtered = data.filter(d => d.year <= scene.endYear);
+
+      // Clear previous
+      svg.selectAll('.line-seg, .dot, .annotation-group').remove();
+
+      // Draw line segments
+      filtered.forEach((d, i) => {
+        if (i < filtered.length - 1) {
+          svg.append('path')
+            .datum([filtered[i], filtered[i + 1]])
+            .attr('class', 'line-seg')
+            .attr('d', lineGen)
+            .style('stroke', color(filtered[i].year))
+            .style('stroke-width', 2)
+            .style('opacity', 0)
+            .transition().delay(i * 5).duration(200).style('opacity', 1);
         }
-        
-        // Initialize data
-        data = generateData();
-        
-        // Scales
-        const xScale = d3.scaleLinear()
-            .domain([1880, 2023])
-            .range([0, width]);
-        
-        const yScale = d3.scaleLinear()
-            .domain(d3.extent(data, d => d.temperature))
-            .range([height, 0]);
-        
-        const colorScale = d3.scaleSequential()
-            .domain([1880, 2023])
-            .interpolator(d3.interpolateRdYlBu)
-            .clamp(true);
-        
-        // Line generator
-        const line = d3.line()
-            .x(d => xScale(d.year))
-            .y(d => yScale(d.temperature))
-            .curve(d3.curveMonotoneX);
-        
-        // Add axes
-        svg.append("g")
-            .attr("class", "x-axis axis")
-            .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(xScale).tickFormat(d3.format("d")));
-        
-        svg.append("g")
-            .attr("class", "y-axis axis")
-            .call(d3.axisLeft(yScale));
-        
-        // Add axis labels
-        svg.append("text")
-            .attr("class", "axis-label")
-            .attr("transform", "rotate(-90)")
-            .attr("y", 0 - margin.left + 20)
-            .attr("x", 0 - (height / 2))
-            .attr("dy", "1em")
-            .style("text-anchor", "middle")
-            .text("Temperature Anomaly (°C)");
-        
-        svg.append("text")
-            .attr("class", "axis-label")
-            .attr("transform", `translate(${width / 2}, ${height + margin.bottom - 10})`)
-            .style("text-anchor", "middle")
-            .text("Year");
-        
-        // Add zero line
-        svg.append("line")
-            .attr("class", "zero-line")
-            .attr("x1", 0)
-            .attr("x2", width)
-            .attr("y1", yScale(0))
-            .attr("y2", yScale(0))
-            .style("stroke", "#999")
-            .style("stroke-dasharray", "3,3");
-        
-        // Tooltip
-        const tooltip = d3.select("#tooltip");
-        
-        // Scene functions
-        function updateScene() {
-            document.getElementById("sceneIndicator").textContent = `Scene ${currentScene} of ${totalScenes}`;
-            document.getElementById("prevBtn").disabled = currentScene === 1;
-            document.getElementById("nextBtn").disabled = currentScene === totalScenes;
-            
-            // Clear previous annotations
-            svg.selectAll(".annotation-group").remove();
-            
-            switch(currentScene) {
-                case 1:
-                    scene1();
-                    break;
-                case 2:
-                    scene2();
-                    break;
-                case 3:
-                    scene3();
-                    break;
-            }
-        }
-        
-        function scene1() {
-            isInteractive = false;
-            document.getElementById("interactiveNote").style.display = "none";
-            
-            // Show data up to 1950
-            const earlyData = data.filter(d => d.year <= 1950);
-            
-            // Remove existing elements
-            svg.selectAll(".line").remove();
-            svg.selectAll(".dot").remove();
-            
-            // Draw line
-            svg.append("path")
-                .datum(earlyData)
-                .attr("class", "line")
-                .attr("d", line)
-                .style("stroke", "#4682b4")
-                .style("opacity", 0)
-                .transition()
-                .duration(1000)
-                .style("opacity", 1);
-            
-            // Add annotation
-            const annotations = [{
-                note: {
-                    title: "Early Industrial Era",
-                    label: "Temperature anomalies were relatively stable with minor fluctuations",
-                    wrap: 200
-                },
-                x: xScale(1920),
-                y: yScale(0.1),
-                dy: -50,
-                dx: 50
-            }];
-            
-            const makeAnnotations = d3.annotation()
-                .type(d3.annotationLabel)
-                .annotations(annotations);
-            
-            svg.append("g")
-                .attr("class", "annotation-group")
-                .call(makeAnnotations);
-        }
-        
-        function scene2() {
-            isInteractive = false;
-            document.getElementById("interactiveNote").style.display = "none";
-            
-            // Show data up to 1990
-            const midData = data.filter(d => d.year <= 1990);
-            
-            // Remove existing elements
-            svg.selectAll(".line").remove();
-            svg.selectAll(".dot").remove();
-            
-            // Draw line with color gradient
-            midData.forEach((d, i) => {
-                if (i < midData.length - 1) {
-                    svg.append("path")
-                        .datum([d, midData[i + 1]])
-                        .attr("class", "line")
-                        .attr("d", line)
-                        .style("stroke", colorScale(d.year))
-                        .style("opacity", 0)
-                        .transition()
-                        .duration(20)
-                        .delay(i * 10)
-                        .style("opacity", 1);
-                }
-            });
-            
-            // Add annotations
-            const annotations = [
-                {
-                    note: {
-                        title: "Post-War Boom",
-                        label: "Rapid industrialization begins to show impact",
-                        wrap: 180
-                    },
-                    x: xScale(1960),
-                    y: yScale(0.2),
-                    dy: -60,
-                    dx: 40
-                },
-                {
-                    note: {
-                        title: "Warming Accelerates",
-                        label: "Clear upward trend emerges in the 1970s",
-                        wrap: 180
-                    },
-                    x: xScale(1975),
-                    y: yScale(0.4),
-                    dy: 40,
-                    dx: 60
-                }
-            ];
-            
-            const makeAnnotations = d3.annotation()
-                .type(d3.annotationLabel)
-                .annotations(annotations);
-            
-            setTimeout(() => {
-                svg.append("g")
-                    .attr("class", "annotation-group")
-                    .call(makeAnnotations);
-            }, 1000);
-        }
-        
-        function scene3() {
-            isInteractive = true;
-            document.getElementById("interactiveNote").style.display = "block";
-            
-            // Show all data
-            svg.selectAll(".line").remove();
-            svg.selectAll(".dot").remove();
-            
-            // Draw complete line with gradient
-            data.forEach((d, i) => {
-                if (i < data.length - 1) {
-                    svg.append("path")
-                        .datum([d, data[i + 1]])
-                        .attr("class", "line")
-                        .attr("d", line)
-                        .style("stroke", colorScale(d.year))
-                        .style("opacity", 0)
-                        .transition()
-                        .duration(10)
-                        .delay(i * 5)
-                        .style("opacity", 1);
-                }
-            });
-            
-            // Add interactive dots
-            setTimeout(() => {
-                svg.selectAll(".dot")
-                    .data(data.filter((d, i) => i % 5 === 0)) // Show every 5th year
-                    .enter().append("circle")
-                    .attr("class", "dot")
-                    .attr("cx", d => xScale(d.year))
-                    .attr("cy", d => yScale(d.temperature))
-                    .attr("r", 4)
-                    .style("fill", d => colorScale(d.year))
-                    .style("stroke", "white")
-                    .style("stroke-width", 1)
-                    .on("mouseover", function(event, d) {
-                        d3.select(this)
-                            .transition()
-                            .duration(200)
-                            .attr("r", 6);
-                        
-                        tooltip.transition()
-                            .duration(200)
-                            .style("opacity", .9);
-                        
-                        tooltip.html(`Year: ${d.year}<br/>Anomaly: ${d.temperature.toFixed(2)}°C`)
-                            .style("left", (event.pageX + 10) + "px")
-                            .style("top", (event.pageY - 28) + "px");
-                    })
-                    .on("mouseout", function(d) {
-                        d3.select(this)
-                            .transition()
-                            .duration(200)
-                            .attr("r", 4);
-                        
-                        tooltip.transition()
-                            .duration(500)
-                            .style("opacity", 0);
-                    });
-            }, 800);
-            
-            // Add final annotations
-            const annotations = [
-                {
-                    note: {
-                        title: "21st Century Crisis",
-                        label: "Unprecedented warming rates threaten global climate stability",
-                        wrap: 200
-                    },
-                    x: xScale(2010),
-                    y: yScale(1.2),
-                    dy: -40,
-                    dx: -100
-                },
-                {
-                    note: {
-                        title: "Recent Records",
-                        label: "Multiple record-breaking years in succession",
-                        wrap: 150
-                    },
-                    x: xScale(2020),
-                    y: yScale(1.4),
-                    dy: 30,
-                    dx: -80
-                }
-            ];
-            
-            const makeAnnotations = d3.annotation()
-                .type(d3.annotationLabel)
-                .annotations(annotations);
-            
-            setTimeout(() => {
-                svg.append("g")
-                    .attr("class", "annotation-group")
-                    .call(makeAnnotations);
-            }, 1200);
-        }
-        
-        // Navigation functions
-        function nextScene() {
-            if (currentScene < totalScenes) {
-                currentScene++;
-                updateScene();
-            }
-        }
-        
-        function previousScene() {
-            if (currentScene > 1) {
-                currentScene--;
-                updateScene();
-            }
-        }
-        
-        // Initialize first scene
-        updateScene();
-    </script>
+      });
+
+      // Interactive dots
+      if (scene.interactive) {
+        svg.selectAll('.dot')
+          .data(filtered.filter((d, i) => i % 5 === 0))
+          .enter().append('circle').attr('class', 'dot')
+            .attr('cx', d => x(d.year))
+            .attr('cy', d => y(d.temperature))
+            .attr('r', 4)
+            .style('fill', d => color(d.year))
+            .style('stroke', '#fff')
+            .style('stroke-width', 1)
+          .on('mouseover', (e, d) => {
+            tooltip.style('opacity', 1)
+              .html(`Year: ${d.year}<br/>${d.temperature.toFixed(2)}°C`)
+              .style('left', (e.pageX + 10) + 'px')
+              .style('top', (e.pageY - 30) + 'px');
+          })
+          .on('mouseout', () => tooltip.style('opacity', 0));
+      }
+
+      // Add annotations
+      annotate(scene.annotation.map(a => ({ x: x(a.x), y: y(a.y), dx: a.dx, dy: a.dy, note: a.note })));      
+      currentScene = idx;
+    }
+
+    // Load & parse CSV, skipping first metadata line
+    d3.text('data/GLB.Ts+dSST.csv').then(raw => {
+      const rows = raw.split('\n');
+      const header = rows[1];                   // "Year,Jan,...,J-D,..."
+      const dataRows = rows.slice(2).filter(r => /^[0-9]{4},/.test(r));
+      const csvText = [header, ...dataRows].join('\n');
+      const parsed = d3.csvParse(csvText, d => ({
+        year: +d.Year,
+        temperature: +d['J-D']               // use J-D column for annual anomaly
+      }));
+      data = parsed;
+
+      // Update scales
+      x.domain(d3.extent(data, d => d.year));
+      y.domain(d3.extent(data, d => d.temperature)).nice();
+      color.domain(d3.extent(data, d => d.year));
+
+      // Draw axes
+      svg.append('g').attr('class', 'x axis')
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x).tickFormat(d3.format('d')));
+      svg.append('g').attr('class', 'y axis')
+        .call(d3.axisLeft(y));
+      svg.append('text').attr('class', 'axis-label')
+        .attr('x', width / 2).attr('y', height + margin.bottom - 5)
+        .style('text-anchor', 'middle').text('Year');
+      svg.append('text').attr('class', 'axis-label')
+        .attr('transform', 'rotate(-90)').attr('x', -height/2).attr('y', -margin.left + 15)
+        .style('text-anchor', 'middle').text('Temperature Anomaly (°C)');
+
+      // Initial scene
+      drawScene(0);
+    });
+
+    // Navigation handlers
+    d3.select('#nextBtn').on('click', () => { if (currentScene < scenes.length - 1) drawScene(currentScene + 1); });
+    d3.select('#prevBtn').on('click', () => { if (currentScene > 0) drawScene(currentScene - 1); });
+    d3.select(window).on('keydown', event => {
+      if (event.key === 'ArrowRight') d3.select('#nextBtn').dispatch('click');
+      if (event.key === 'ArrowLeft') d3.select('#prevBtn').dispatch('click');
+    });
+  </script>
 </body>
 </html>
